@@ -142,13 +142,15 @@ async function fetchImageBuffer(imageUrl) {
     },
     redirect: "follow"
   });
-  if (!res.ok) {
+  const contentType = res.headers.get("content-type") || "";
+  // Normalize content-type (strip charset etc)
+  const mimeType = contentType.split(";")[0].trim();
+  // Some CDNs (e.g. postimg) return non-2xx status but still serve the image
+  // Accept the response if content-type is an image type, regardless of status
+  if (!res.ok && !mimeType.startsWith("image/")) {
     const body = await res.text().catch(() => "");
     throw new Error(`Failed to fetch image from ${imageUrl}: HTTP ${res.status} ${body.slice(0, 100)}`);
   }
-  const contentType = res.headers.get("content-type") || "image/png";
-  // Normalize content-type (strip charset etc)
-  const mimeType = contentType.split(";")[0].trim();
   const buffer = Buffer.from(await res.arrayBuffer());
   if (buffer.length === 0) throw new Error("Fetched image is empty (0 bytes)");
   if (buffer.length > 5 * 1024 * 1024) throw new Error(`Image too large: ${(buffer.length/1024/1024).toFixed(1)}MB (max 5MB)`);
