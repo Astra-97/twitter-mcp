@@ -135,11 +135,24 @@ async function uploadMedia(imageBuffer, mimeType = "image/png") {
 }
 
 async function fetchImageBuffer(imageUrl) {
-  const res = await fetch(imageUrl);
-  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+  const res = await fetch(imageUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+    },
+    redirect: "follow"
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to fetch image from ${imageUrl}: HTTP ${res.status} ${body.slice(0, 100)}`);
+  }
   const contentType = res.headers.get("content-type") || "image/png";
+  // Normalize content-type (strip charset etc)
+  const mimeType = contentType.split(";")[0].trim();
   const buffer = Buffer.from(await res.arrayBuffer());
-  return { buffer, mimeType: contentType };
+  if (buffer.length === 0) throw new Error("Fetched image is empty (0 bytes)");
+  if (buffer.length > 5 * 1024 * 1024) throw new Error(`Image too large: ${(buffer.length/1024/1024).toFixed(1)}MB (max 5MB)`);
+  return { buffer, mimeType };
 }
 
 // --- Cache user ID ---
